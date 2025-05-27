@@ -1,0 +1,39 @@
+#!/bin/sh
+# fzf-oneliner - select (using `fmenu`) and execute a one-line shell command from
+#                a file `$ONELINERS` (by default `$HOME/.local/bin/oneliners`)
+# Other requirements:
+#  - `xsel` - for copying the command to the clipboard
+#  - `xdotool` - for typing the command in the terminal
+# Bindings:
+#  - <enter> - execute the command
+#  - <ctrl-y> - "yank"/copy the command to the clipboard
+#  - <alt-enter> - type the command into the terminal (selected before launching `fzf-oneliner`)
+
+# command to copy the command to the clipboard
+copy_to_clipboard='printf "%s" {} | sed -e "s/#[^#]*$//;s/[[:space:]]*$//" | xsel -b'
+
+# command to type the command in the terminal
+active_window=$(xdotool getactivewindow) # active window (terminal) before fzf is launched
+type='printf "%s" {} | sed -e "s/#[^#]*$//;s/[[:space:]]*$//" | xdotool type --delay 2 --window '$active_window' --clearmodifiers --file -'
+
+# set fzf bindings
+FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS
+    --bind='ctrl-y:execute-silent($copy_to_clipboard)+abort'
+    --bind='alt-enter:execute-silent($copy_to_clipboard)+execute-silent($type)+abort'"
+
+# ignore lines starting with '#' and empty lines
+# print the comment [usually on the previous line] after the command
+# shellcheck disable=SC2016 # intentional to avoid shell expansion of $0
+awk_program='{ if (!/^\s*#/ && !/^\s*$/) {printf "%-83s %s\n", $0, prev} else {prev = $0} }'
+
+# select a command from a file 'oneliners'
+sel=$(awk "$awk_program" "${ONELINERS:-$HOME/.local/bin/oneliners}" | fmenu -g 150x20 -p 'Oneliner:')
+[ -z "$sel" ] && exit 1
+
+# execute the command and copy the output to the clipboard
+eval "$sel" 2>&1 | xsel -b
+
+# output=$(eval "$sel" 2>&1)
+# if [ ! -z "$output" ]; then
+#     echo "$output" | less
+# fi
