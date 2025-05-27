@@ -11,4 +11,4 @@ FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --print-query --bind='alt-enter:become(echo 
 sel="$(dmenu_path | fmenu -g 50x15 -p 'Run:' | tail -n 1)"
 [ -z "$sel" ] && exit 1
 
-eval "$sel"
+setsid --fork $sel
