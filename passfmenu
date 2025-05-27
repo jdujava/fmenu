@@ -1,0 +1,32 @@
+#!/bin/sh
+# passfmenu - retrieve a `pass` password using a `fmenu` selection
+# Requirements:
+#  - `pass` - a password manager
+#  - `xclip` - for copying the password to the clipboard
+#  - `xdotool` - for typing the command in the terminal (when `--type` is passed)
+
+typeit=0
+if [ "$1" = "--type" ]; then
+    typeit=1
+    shift
+fi
+
+prefix=${PASSWORD_STORE_DIR-~/.password-store}
+password_files=$(find "$prefix" -type f -name '*.gpg' -print | sed "s|^$prefix/||;s/\.gpg$//")
+
+password=$(echo "$password_files" | fmenu -g 50x15 -p "Pass:" "$@")
+[ -n "$password" ] || exit 1
+
+if [ -z "$DISPLAY" ]; then
+    # Print to terminal
+    pass show "$password"
+elif [ $typeit -eq 0 ]; then
+    # Copy to clipboard
+    pass show -c "$password"
+    # Alternative: copy everything (delete last trailing newline if present)
+    # pass show "$password" | sed -z '$ s/\n$//' | xsel -b
+else
+    # Type it out with xdotool
+    xdotool="xdotool type --clearmodifiers --file -"
+    pass show "$password" | { IFS= read -r pass; printf '%s' "$pass"; } | $xdotool
+fi
