@@ -1,0 +1,10 @@
+#!/bin/sh
+# fprompt - a binary prompt script, giving a `fmenu` prompt with geometry `$1`
+#           and the prompt `$2` (with "No/Yes" choice) to perform the command `$3`
+# For example: `./fprompt 38x6 "Do you want to shutdown?" "shutdown -h now"`
+
+FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS
+    --bind=btab:up,tab:down,right:down,left:up
+    --padding=1,4,0,4"
+
+[ "$(printf "No\\nYes" | fmenu -g "$1" -p "$2")" = "Yes" ] && $3
