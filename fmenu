@@ -1,0 +1,67 @@
+#!/bin/sh
+
+fflag=
+geom="70x15"
+instance_name="popup-center" # applies `dwm` rules for my `dwm-jd` build
+multi="--no-multi"
+prompt="Fmenu:"
+query=
+
+usage() {
+    cat <<EOF
+Description:
+  fmenu - a simple wrapper for 'fzf' as a 'dmenu' replacement
+
+Usage:
+  fmenu [-h] [-f] [-g <geometry>] [-n <name>] [-m] [-p <prompt>] [-q <query>]
+        [-- <args passed to fzf>]
+
+Flags:
+  -f  directly use 'fzf' instead of launching it in a terminal
+  -g  the geometry of the window, default is '70x15'
+  -n  the instance name of the 'st' window, default is 'popup-center'
+  -m  allow multiple selections, default is single selection
+  -p  the prompt for the 'fzf', default is 'Fmenu:'
+  -q  the query for the 'fzf', default is empty
+  -h  print this help message
+
+  After the '--' separator, all arguments are passed to 'fzf'.
+EOF
+}
+
+# add/change the lines:
+#   skip=0
+#   while getopts "i:fg:t:h-:" o; do case ${o} in
+#       -) skip=$((skip + 1));;
+#   shift $(($OPTIND - 1))
+# HACK: we can skip processing long flags so we can directly pass flags
+#       to fzf without using the '--' separator; it is hacky...
+
+while getopts "fg:n:mp:q:ih" o; do case ${o} in
+    f) fflag=1 ;;
+    g) geom="$OPTARG" ;;
+    n) instance_name="$OPTARG" ;;
+    m) multi="--multi" ;;
+    p) prompt="$OPTARG" ;;
+    q) query="$OPTARG" ;;
+    i) continue ;; # compatibility with dmenu
+    h) usage; exit 0 ;;
+    ?) printf "See '%s -h' for possible options and help\n" "$(basename "$0")"
+        exit 2 ;;
+esac done
+shift $((OPTIND - 1))
+
+# properly quote the arguments passed to fzf
+fzf_arguments=$(/usr/bin/printf "%q\n" "$@")
+
+FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS $multi
+    --prompt='$prompt ' --query='$query' $fzf_arguments"
+
+if [ -n "$fflag" ] || [ -z "$DISPLAY" ]; then
+    FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --height=~50%"
+    fzf < /proc/$$/fd/0 > /proc/$$/fd/1
+else
+    # shellcheck disable=SC2016
+    ${TERMINAL:-st} -g "$geom" -n "$instance_name" -t "$prompt" -e \
+        sh -c 'fzf < /proc/$PPID/fd/0 > /proc/$PPID/fd/1'
+fi
