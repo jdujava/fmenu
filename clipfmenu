@@ -1,0 +1,22 @@
+#!/bin/sh
+# clipfmenu - port of `clipmenu` script using `fmenu` for selection
+# Other requirements:
+#  - `clipmenu` (running `clipmenud` daemon)
+#  - `xsel` for copying to clipboard
+
+major_version=6
+CM_DIR="${XDG_RUNTIME_DIR:-"${TMPDIR:-/tmp}"}"
+cache_dir=$CM_DIR/clipmenu.$major_version.$USER
+cache_file=$cache_dir/line_cache
+
+list_clips() {
+    LC_ALL=C sort -rnk 1 < "$cache_file" | cut -d' ' -f2- | awk '!seen[$0]++'
+}
+
+chosen_line=$(list_clips | fmenu -p 'Clipmenu:' "$@")
+[ -z "$chosen_line" ] && exit 1
+
+file=$cache_dir/$(printf "%s\n" "$chosen_line" | cksum)
+[ -f "$file" ] || exit 2
+
+xsel -b < "$file"
