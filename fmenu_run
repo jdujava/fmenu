@@ -5,7 +5,10 @@
 #  - `dmenu` (for `dmenu_path` depending on `stest`)
 
 # also print query, so that when there is no match, the query is selected and executed
-sel="$(dmenu_path | fmenu -g 50x15 -p 'Run:' -- --print-query | tail -n 1)"
+# or explicitly select the query with the <alt-enter> binding
+FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --print-query --bind='alt-enter:become(echo {q})'"
+
+sel="$(dmenu_path | fmenu -g 50x15 -p 'Run:' | tail -n 1)"
 [ -z "$sel" ] && exit 1
 
 eval "$sel"
