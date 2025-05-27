@@ -1,0 +1,43 @@
+#!/bin/sh
+# fzfopen - a `fzf`/`fmenu` alternative to `mimeopen`
+# Other requirements:
+#  - `xdg-utils` - provides `xdg-mime`
+#  - `gtk3` - provides `gtk-launch`
+#  - `libnotify` and `dunst` - provides `notify-send` for notifications
+
+[ -e "$1" ] || exit 1
+
+local="${XDG_DATA_HOME:-$HOME/.local/share}/applications/mimeinfo.cache"
+global1="/usr/share/applications/mimeinfo.cache"
+global2="/usr/local/share/applications/mimeinfo.cache"
+
+# get all apps associated with a mimetype
+xdg_all_apps() {
+    mimetype=$(file -Lb --mime-type "$1")
+    xdg_mimetype=$(xdg-mime query filetype "$1")
+    matching=$(cat "$local" "$global1" "$global2" |
+        awk -v m="$mimetype" -v x="$xdg_mimetype" -F'=' '$1 == m || $1 == x {print $2}')
+    if [ -z "$matching" ]; then
+        echo >&2 "No application associated with mimetype $mimetype or $xdg_mimetype."
+        notify-send -u critical "No application associated with mimetype." "Recognized mimetypes: $mimetype, $xdg_mimetype"
+        return 2
+    fi
+    echo "$matching" | tr ';' '\n' | sort -u | grep -v '^$'
+}
+
+# get app name from corresponding desktop file
+get_app_name() {
+    # shellcheck disable=SC2046
+    desktop_file=$(find $(dirname "$local" "$global1" "$global2") -name "$1")
+    name="$(grep -m1 '^Name=' "$desktop_file" | cut -d'=' -f2)"
+    [ -z "$name" ] && name="$1"
+    printf "%-35s │ %s\n" "$name" "$1"
+}
+
+apps=$(xdg_all_apps "$1" | while read -r app; do get_app_name "$app"; done)
+[ -z "$apps" ] && exit 1
+
+sel=$(echo "$apps" | fmenu -g 100x15 -p "Open with:" -- --tiebreak=begin | awk -F'│ ' '{print $2}')
+[ -z "$sel" ] && exit 1
+
+gtk-launch "$sel" "$1" >/dev/null 2>&1
