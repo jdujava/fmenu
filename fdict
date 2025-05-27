@@ -1,0 +1,51 @@
+#!/bin/zsh
+# fdict - dictionary lookup with `sdcv` and translation with `translate-shell`,
+#         with the selection/lookup  the ease of the `fzf` fuzzy-finding
+# Requirements:
+#  - `sdcv` - terminal utility for working with dictionaries in StarDict format,
+#           - export the `$STARDICT_DATA_DIR` environment variable, something such as
+#               "$XDG_DATA_HOME/stardict", and put there dictionaries for your needs
+#  - `translate-shell` - command-line interface for Google Translate
+
+# Extra bindings (in addition to your default `fzf` bindings):
+#  - <enter> - translate the selection (or the query, if selection is empty)
+#  - <alt-enter> - translate the query
+#  - <esc> - return back to the dictionary if the translation is open, else quit
+
+## Translation will be from English to `$lang` (change the default to suit your needs)
+lang=${1:-sk}
+
+translate_label=$' \033[33m󰊿 TRANSLATION '
+dictionary_label=' 󰘝 DICTIONARY '
+
+change_to_translation="change-preview-label($translate_label)+change-preview-window(border-bold)"
+change_to_dictionary="change-preview-label($dictionary_label)+change-preview-window(border-rounded)"
+escape_translation_or_abort='[ "$FZF_PREVIEW_LABEL" = "'$translate_label'" ] && echo "refresh-preview+'$change_to_dictionary'" || echo abort'
+
+# TODO: how to dynamically change label position: https://github.com/junegunn/fzf/issues/3862
+# TODO: how to dynamically change colors: https://github.com/junegunn/fzf/issues/3861
+# preview-bg:#262626,
+
+dic_preview='sdcv -n --color -- {} {q}'
+trans_preview="trans en:$lang -v -- {}"
+trans_preview_query="trans en:$lang -v -- {q}"
+
+# placeholder `{}` expands to the selected word, `{q}` expands to the current query
+FZF_DEFAULT_OPTS+="
+    --preview-window='top:70%:wrap:nohidden'
+    --preview-label-pos=bottom
+    --preview='$dic_preview'
+    --bind='enter:preview([ -n {} ] && $trans_preview || $trans_preview_query)+$change_to_translation'
+    --bind='alt-enter:preview(                           $trans_preview_query)+$change_to_translation'
+    --bind='focus:$change_to_dictionary'
+    --bind='esc:transform:$escape_translation_or_abort'
+"
+
+if [ -f "$STARDICT_DATA_DIR/words_infochimps_stardict_all" ]; then
+    ## Extracted words from an English StarDict dictionary along the lines of
+    ## https://unix.stackexchange.com/q/351858, combined with https://github.com/dwyl/english-words
+    fzf < "$STARDICT_DATA_DIR/words_infochimps_stardict_all"
+else
+    ## Alternative: use a system dictionary (a lot smaller, doesn't contain all dictionary words)
+    fzf < /usr/share/dict/words
+fi
