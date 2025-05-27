@@ -1,0 +1,10 @@
+#!/bin/sh
+# vfzf - select files to edit in `$EDITOR` (by default `nvim`)
+
+FZF_DEFAULT_COMMAND="$FZF_DEFAULT_COMMAND --ignore-file '$XDG_CONFIG_HOME/fd/nvim-ignore'"
+
+sel=$(fzf --prompt='NeoVim: ' | sed 's/.*/"&"/g')
+[ -z "$sel" ] && exit 1
+
+eval exec "${EDITOR:-nvim}" -O $sel
+# eval setsid --fork $TERMINAL $EDITOR -O $sel

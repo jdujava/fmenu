@@ -1,0 +1,10 @@
+#!/bin/sh
+# mfzf - select manpage(s) with `fzf`
+
+## alternative with `xargs`
+# man -k . | fzf --prompt='Man: ' | tr -d '()' | awk '{printf "%s %s\n", $2, $1}' | xargs -r man
+
+sel=$(man -k . | fzf --tiebreak=begin --prompt='Man: ' | tr -d '()' | awk '{printf "%s %s ", $2, $1}')
+[ -z "$sel" ] && exit 1
+
+exec man $sel

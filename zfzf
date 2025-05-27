@@ -1,0 +1,11 @@
+#!/bin/sh
+# zfzf - select files to open in `zathura`
+
+FZF_DEFAULT_COMMAND="$FZF_DEFAULT_COMMAND -e pdf -e djvu -e ps"
+
+fzf --prompt='Zathura: ' | sed 's/.*/"&"/g' | xargs -r zathura --fork
+
+# sel=$(fzf --prompt='Zathura: ' | sed 's/.*/"&"/g' | tr '\n' ' ')
+# [ -z "$sel" ] && exit 1
+#
+# eval zathura --fork "$sel"
