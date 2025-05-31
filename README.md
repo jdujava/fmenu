@@ -1,7 +1,8 @@
 # `fmenu` and related scripts
 
 This is a collection of scripts using [`fzf`](https://github.com/junegunn/fzf).
-The main script is `fmenu` — fuzzy-selection dynamic menu — which can be used as a [`dmenu`](https://tools.suckless.org/dmenu/) replacement/enhancement.
+The main script is `fmenu` — fuzzy-selection dynamic menu — which can be
+used as a [`dmenu`](https://tools.suckless.org/dmenu/) replacement/enhancement.
 
 Other scripts include:
 - `fmenu_run` — run binaries/commands in `$PATH`
@@ -14,3 +15,13 @@ Other scripts include:
 - `fzfopen` — open files by the mime type
 - `fdict` — fuzzy-finder interface to dictionaries
 - `fzf-oneliner` — run one-liner shell scripts
+
+## Installation
+
+You can manually install `fmenu` and related scripts by cloning
+this repository and running (if necessary as root)
+```sh
+make install
+```
+Alternatively (on Arch-based systems), you can utilize the custom
+PKGBUILD repository [AUR-jdujava](https://github.com/jdujava/AUR-jdujava).
