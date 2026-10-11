@@ -1,0 +1,10 @@
+#!/bin/sh
+# Keep the fzf terminal launcher used by dwm, without X11's dmenu_path.
+# Enter chooses a match; Alt+Enter runs the typed query, like fmenu_run did.
+
+selected=$(bash -c 'compgen -c' | LC_ALL=C sort -u | fmenu -p 'Run:' -- \
+    --print-query --bind='alt-enter:become(printf "%s\n" {q})' | tail -n 1) || exit 0
+[ -n "$selected" ] || exit 0
+
+# Selection is a shell command chosen intentionally by the local user.
+sh -c "$selected" >/dev/null 2>&1 &

@@ -5,8 +5,9 @@ PREFIX ?= /usr/local
 BIN_DIR := ${DESTDIR}${PREFIX}/bin
 
 # List of all scripts
-SCRIPTS := fmenu fmenu_run vfzf zfzf mfzf fprompt \
-           clipfmenu passfmenu fzfopen fzf-oneliner fdict
+SCRIPTS := fmenu fmenu_run fzf-files vfzf zfzf mfzf fprompt \
+           clipfmenu passfmenu fzfopen fzf-oneliner fdict \
+           fmenu-run-wl clipfmenu-wl fzf-oneliner-wl
 
 # Install scripts
 install:

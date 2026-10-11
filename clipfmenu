@@ -1,4 +1,9 @@
 #!/bin/sh
+# Keep the X11 workflow below; native Wayland uses its own clipboard/menu tools.
+if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    exec clipfmenu-wl "$@"
+fi
+
 # clipfmenu - port of `clipmenu` script using `fmenu` for selection
 # Other requirements:
 #  - `clipmenu` (running `clipmenud` daemon)

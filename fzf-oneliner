@@ -1,4 +1,9 @@
 #!/bin/sh
+# Keep the X11 workflow below; native Wayland uses its own clipboard/menu tools.
+if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    exec fzf-oneliner-wl "$@"
+fi
+
 # fzf-oneliner - select (using `fmenu`) and execute a one-line shell command from
 #                a file `$ONELINERS` (by default `$HOME/.local/bin/oneliners`)
 # Other requirements:
@@ -17,7 +22,7 @@ active_window=$(xdotool getactivewindow) # active window (terminal) before fzf i
 type='printf "%s" {} | sed -e "s/#[^#]*$//;s/[[:space:]]*$//" | xdotool type --delay 2 --window '$active_window' --clearmodifiers --file -'
 
 # set fzf bindings
-FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS
+export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS-}
     --bind='ctrl-y:execute-silent($copy_to_clipboard)+abort'
     --bind='alt-enter:execute-silent($copy_to_clipboard)+execute-silent($type)+abort'"
 

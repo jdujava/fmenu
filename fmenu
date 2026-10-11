@@ -1,10 +1,18 @@
 #!/bin/sh
+# fmenu - a small fzf wrapper for use wherever you would use dmenu.
+set -u
 
-fflag=
-geom="70x15"
-instance_name="popup-center" # applies `dwm` rules for my `dwm-jd` build
-multi="--no-multi"
-prompt="Fmenu:"
+# Keep caller-specific FZF_DEFAULT_OPTS (e.g. fmenu_run and X11 oneliners).
+options=${XDG_CONFIG_HOME:-$HOME/.config}/fzf/options
+if [ -r "$options" ]; then
+    export FZF_DEFAULT_OPTS_FILE="$options"
+fi
+
+foreground=0
+geom=70x15
+name=popup-center
+multi=--no-multi
+prompt=Fmenu:
 query=
 
 usage() {
@@ -18,50 +26,57 @@ Usage:
 
 Flags:
   -f  directly use 'fzf' instead of launching it in a terminal
-  -g  the geometry of the window, default is '70x15'
-  -n  the instance name of the 'st' window, default is 'popup-center'
+  -g  the geometry of the window in columns x rows, default is '70x15'
+  -n  the Foot app ID or st instance name, default is 'popup-center'
   -m  allow multiple selections, default is single selection
-  -p  the prompt for the 'fzf', default is 'Fmenu:'
-  -q  the query for the 'fzf', default is empty
+  -p  the prompt for 'fzf', default is 'Fmenu:'
+  -q  the query for 'fzf', default is empty
+  -i  accepted for compatibility with dmenu; fzf keeps its own case settings
   -h  print this help message
 
   After the '--' separator, all arguments are passed to 'fzf'.
+  On Wayland the menu opens in Foot; on X11 it uses \${TERMINAL:-st}.
+  Without a graphical display it runs directly in the current terminal.
 EOF
 }
 
-# add/change the lines:
-#   skip=0
-#   while getopts "i:fg:t:h-:" o; do case ${o} in
-#       -) skip=$((skip + 1));;
-#   shift $(($OPTIND - 1))
-# HACK: we can skip processing long flags so we can directly pass flags
-#       to fzf without using the '--' separator; it is hacky...
-
-while getopts "fg:n:mp:q:ih" o; do case ${o} in
-    f) fflag=1 ;;
-    g) geom="$OPTARG" ;;
-    n) instance_name="$OPTARG" ;;
-    m) multi="--multi" ;;
-    p) prompt="$OPTARG" ;;
-    q) query="$OPTARG" ;;
-    i) continue ;; # compatibility with dmenu
-    h) usage; exit 0 ;;
-    ?) printf "See '%s -h' for possible options and help\n" "$(basename "$0")"
-        exit 2 ;;
-esac done
+while getopts 'fg:n:mp:q:ih' option; do
+    case "$option" in
+        f) foreground=1 ;;
+        g) geom=$OPTARG ;;
+        n) name=$OPTARG ;;
+        m) multi=--multi ;;
+        p) prompt=$OPTARG ;;
+        q) query=$OPTARG ;;
+        i) : ;; # dmenu compatibility
+        h) usage; exit 0 ;;
+        *) printf "See '%s -h' for possible options and help\n" "${0##*/}" >&2; exit 2 ;;
+    esac
+done
 shift $((OPTIND - 1))
 
-# properly quote the arguments passed to fzf
-fzf_arguments=$(/usr/bin/printf "%q\n" "$@")
+# This menu reads a supplied list, not files. File-search reloads would replace
+# dictionary/application/clipboard entries with an unrelated filesystem search.
+set -- --bind=alt-r:ignore,alt-R:ignore "$@"
 
-FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS $multi
-    --prompt='$prompt ' --query='$query' $fzf_arguments"
+# -f is also useful in an existing terminal or a script's test fixture.
+if [ "$foreground" -eq 1 ] || { [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; }; then
+    exec fzf "$multi" --height='~50%' --prompt="$prompt " --query="$query" "$@"
+fi
 
-if [ -n "$fflag" ] || [ -z "$DISPLAY" ]; then
-    FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --height=~50%"
-    fzf < /proc/$$/fd/0 > /proc/$$/fd/1
+# The new terminal normally owns stdin/stdout. Reopen our original descriptors
+# so piped input reaches fzf and its selection comes back to the caller.
+# Keep arguments separate: filenames and fzf options must not become shell code.
+original_pid=$$
+if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    foot -W "$geom" -a "$name" -T "$prompt" sh -c \
+        'in=$1; out=$2; shift 2; fzf "$@" < "$in" > "$out"' \
+        fmenu "/proc/$original_pid/fd/0" "/proc/$original_pid/fd/1" \
+        "$multi" --prompt="$prompt " --query="$query" "$@"
 else
-    # shellcheck disable=SC2016
-    ${TERMINAL:-st} -g "$geom" -n "$instance_name" -t "$prompt" -e \
-        sh -c 'fzf < /proc/$PPID/fd/0 > /proc/$PPID/fd/1'
+    # Keep the original X11 terminal setting; xprofile supplies st.
+    "${TERMINAL:-st}" -g "$geom" -n "$name" -t "$prompt" -e sh -c \
+        'in=$1; out=$2; shift 2; fzf "$@" < "$in" > "$out"' \
+        fmenu "/proc/$original_pid/fd/0" "/proc/$original_pid/fd/1" \
+        "$multi" --prompt="$prompt " --query="$query" "$@"
 fi

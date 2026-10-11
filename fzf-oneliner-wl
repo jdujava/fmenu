@@ -1,0 +1,44 @@
+#!/bin/sh
+# Enter executes/copies output; Ctrl+y copies; Alt+Enter types without executing.
+set -eu
+
+file=${ONELINERS:-$HOME/.local/bin/oneliners}
+# Remember the window before opening the menu, for Alt+Enter's typing action.
+client=$(mmsg get focusing-client | jq -er '.id | select(type == "number")') || client=
+
+# Include the source line number: formatted labels are only for display.
+selection=$(awk '
+    /^[[:space:]]*(#|$)/ { comment=$0; next }
+    { printf "%d\t%-83s %s\n", NR, $0, comment; comment="" }
+' "$file" | fmenu -g 150x20 -p 'Oneliner:' -- \
+    --delimiter='\t' --with-nth=2.. --expect=enter,ctrl-y,alt-enter) || exit 0
+
+# fzf returns the pressed key, then the chosen record, on separate lines.
+newline='
+'
+key=${selection%%"$newline"*}
+record=${selection#*"$newline"}
+tab=$(printf '\t')
+line=${record%%"$tab"*}
+case $line in ''|*[!0-9]*) exit 0 ;; esac
+
+# Read the exact command; never execute its formatted menu label or comment.
+command=$(awk -v line="$line" 'NR==line { print; exit }' "$file")
+
+case $key in
+    enter) sh -c "$command" 2>&1 | wl-copy ;;
+    ctrl-y) printf '%s' "$command" | wl-copy ;;
+    alt-enter)
+        printf '%s' "$command" | wl-copy
+        # Empty tags still support execute/copy. Never type into another window
+        # if the original target was absent or closed while the menu was open.
+        if [ -z "$client" ]; then
+            notify-send 'One-liner copied' 'No original window to type into.' || :
+            exit 0
+        fi
+        mmsg dispatch "focusid,client,$client" >/dev/null
+        mmsg get focusing-client | jq -e --argjson id "$client" '.id == $id' >/dev/null || exit 0
+        # Let the original client process keyboard enter/keymap before typing.
+        exec wtype -s 50 -d 2 -- "$command"
+        ;;
+esac

@@ -1,43 +1,42 @@
-#!/bin/sh
-# fzfopen - a `fzf`/`fmenu` alternative to `mimeopen`
-# Other requirements:
-#  - `xdg-utils` - provides `xdg-mime`
-#  - `gtk3` - provides `gtk-launch`
-#  - `libnotify` and `dunst` - provides `notify-send` for notifications
+#!/usr/bin/env python3
+"""An open-with menu. GIO handles desktop entries and MIME associations for us."""
+import os
+from pathlib import Path
+import subprocess
+import sys
+from gi.repository import Gio, GLib
 
-[ -e "$1" ] || exit 1
+if len(sys.argv) != 2:
+    sys.exit("Usage: fzfopen FILE")
 
-local="${XDG_DATA_HOME:-$HOME/.local/share}/applications/mimeinfo.cache"
-global1="/usr/share/applications/mimeinfo.cache"
-global2="/usr/local/share/applications/mimeinfo.cache"
+path = Path(sys.argv[1]).expanduser().absolute()
 
-# get all apps associated with a mimetype
-xdg_all_apps() {
-    mimetype=$(file -Lb --mime-type "$1")
-    xdg_mimetype=$(xdg-mime query filetype "$1")
-    matching=$(cat "$local" "$global1" "$global2" |
-        awk -v m="$mimetype" -v x="$xdg_mimetype" -F'=' '$1 == m || $1 == x {print $2}')
-    if [ -z "$matching" ]; then
-        echo >&2 "No application associated with mimetype $mimetype or $xdg_mimetype."
-        notify-send -u critical "No application associated with mimetype." "Recognized mimetypes: $mimetype, $xdg_mimetype"
-        return 2
-    fi
-    echo "$matching" | tr ';' '\n' | sort -u | grep -v '^$'
-}
+try:
+    info = Gio.File.new_for_path(str(path)).query_info(
+        "standard::content-type", Gio.FileQueryInfoFlags.NONE, None,
+    )
+    apps = Gio.AppInfo.get_all_for_type(info.get_content_type())
 
-# get app name from corresponding desktop file
-get_app_name() {
-    # shellcheck disable=SC2046
-    desktop_file=$(find $(dirname "$local" "$global1" "$global2") -name "$1")
-    name="$(grep -m1 '^Name=' "$desktop_file" | cut -d'=' -f2)"
-    [ -z "$name" ] && name="$1"
-    printf "%-35s │ %s\n" "$name" "$1"
-}
+    # Show names people recognize, but keep desktop IDs for an exact launch.
+    # Flatten embedded newlines so each application occupies one menu line.
+    entries = {}
+    for app in apps:
+        if app.get_id():
+            name = " ".join(app.get_display_name().splitlines())
+            entries[f"{name:<35} │ {app.get_id()}"] = app.get_id()
 
-apps=$(xdg_all_apps "$1" | while read -r app; do get_app_name "$app"; done)
-[ -z "$apps" ] && exit 1
+    if not entries:
+        sys.exit(f"fzfopen: no application registered for {info.get_content_type()}")
 
-sel=$(echo "$apps" | fmenu -g 100x15 -p "Open with:" -- --tiebreak=begin | awk -F'│ ' '{print $2}')
-[ -z "$sel" ] && exit 1
+    choice = subprocess.run(
+        ["fmenu", "-g", "100x15", "-p", "Open with:", "--", "--tiebreak=begin"],
+        input="\n".join(sorted(entries, key=str.casefold)) + "\n",
+        text=True, stdout=subprocess.PIPE,
+    )
+    selected = choice.stdout.strip()
+    if choice.returncode or selected not in entries:
+        sys.exit(0)
 
-gtk-launch "$sel" "$1" >/dev/null 2>&1
+    os.execvp("gtk-launch", ["gtk-launch", entries[selected], str(path)])
+except (OSError, GLib.Error) as error:
+    sys.exit(f"fzfopen: {error}")

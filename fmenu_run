@@ -1,4 +1,9 @@
 #!/bin/sh
+# Keep the X11 workflow below; native Wayland uses its own clipboard/menu tools.
+if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    exec fmenu-run-wl "$@"
+fi
+
 # fmenu_run - `dmenu_run` using `fmenu` for selection, used for running
 #             any binary or shell script in the `$PATH`
 # Other requirements:
@@ -6,7 +11,7 @@
 
 # also print query, so that when there is no match, the query is selected and executed
 # or explicitly select the query with the <alt-enter> binding
-FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --print-query --bind='alt-enter:become(echo {q})'"
+export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS-} --print-query --bind='alt-enter:become(echo {q})'"
 
 sel="$(dmenu_path | fmenu -g 50x15 -p 'Run:' | tail -n 1)"
 [ -z "$sel" ] && exit 1
