@@ -3,8 +3,8 @@
 #           and the prompt `$2` (with "No/Yes" choice) to perform the command `$3`
 # For example: `./fprompt 38x6 "Do you want to shutdown?" "shutdown -h now"`
 
-FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS
-    --bind=btab:up,tab:down,right:down,left:up
-    --padding=1,4,0,4"
+# Pass menu-specific options directly; shared defaults may be unset.
+choice=$(printf 'No\nYes\n' | fmenu -g "$1" -p "$2" -- \
+    --bind=btab:up,tab:down,right:down,left:up --padding=1,4,0,4)
 
-[ "$(printf "No\\nYes" | fmenu -g "$1" -p "$2")" = "Yes" ] && $3
+[ "$choice" = Yes ] && $3

@@ -1,6 +1,13 @@
 #!/bin/sh
-# zfzf - select files to open in `zathura`
+# Select PDF, DjVu or PostScript files and open each in Zathura.
+set -e
 
-FZF_DEFAULT_COMMAND="$FZF_DEFAULT_COMMAND -e pdf -e djvu -e ps"
+config=${XDG_CONFIG_HOME:-$HOME/.config}/fzf/config.sh
+[ ! -r "$config" ] || . "$config"
+set -u
+export FZF_DEFAULT_COMMAND='fzf-files document'
 
-fzf --prompt='Zathura: ' --print0 | xargs -0 -r zathura --fork
+[ "$#" -eq 0 ] || cd -- "$1"
+
+# NUL separators preserve every filename; -r leaves cancellation alone.
+fzf --read0 --print0 --prompt='Zathura: ' | xargs -0 -r zathura --fork --

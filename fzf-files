@@ -1,0 +1,37 @@
+#!/bin/sh
+# One fd definition for the pickers, including fzf's Alt+r/Alt+R reloads.
+set -eu
+
+mode=${1:-all}
+[ "$#" -eq 0 ] || shift
+
+# fd keeps an explicit --ignore-file even with --no-ignore. The editor's extra
+# exclusions should follow the same Alt+r/Alt+R mode as its ordinary ignore rules.
+respect_ignore=1
+for option do
+    case $option in
+        --no-ignore|-I|-u|--unrestricted) respect_ignore=0 ;;
+        --ignore) respect_ignore=1 ;;
+    esac
+done
+
+# Keep fd's normal ignore rules; --no-require-git also honors .gitignore outside
+# a Git checkout. NUL-separated modes preserve filenames containing newlines.
+set -- fd --follow --hidden --no-require-git "$@"
+case $mode in
+    all) set -- "$@" --type file --type symlink ;;
+    paths) set -- "$@" --type file --type symlink --type directory ;;
+    directory) set -- "$@" --type directory ;;
+    edit)
+        set -- "$@" --type file --type symlink --print0
+        ignore=${XDG_CONFIG_HOME:-"$HOME/.config"}/fd/nvim-ignore
+        if [ "$respect_ignore" -eq 1 ] && [ -f "$ignore" ]; then
+            set -- "$@" --ignore-file "$ignore"
+        fi
+        ;;
+    document) set -- "$@" --type file --type symlink --print0 -e pdf -e djvu -e ps ;;
+    lf) set -- "$@" --type file --type symlink --type directory --print0 ;;
+    *) printf 'fzf-files: unknown mode: %s\n' "$mode" >&2; exit 2 ;;
+esac
+
+exec "$@"

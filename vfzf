@@ -1,10 +1,18 @@
 #!/bin/sh
-# vfzf - select files to edit in `$EDITOR` (by default `nvim`)
+# vfzf - select files for an editor; fzf quotes each filename for become.
+set -e
 
-FZF_DEFAULT_COMMAND="$FZF_DEFAULT_COMMAND --ignore-file '$XDG_CONFIG_HOME/fd/nvim-ignore'"
+# Shared options are optional; the search command works even from a WM shortcut.
+config=${XDG_CONFIG_HOME:-$HOME/.config}/fzf/config.sh
+[ ! -r "$config" ] || . "$config"
+set -u
+export FZF_DEFAULT_COMMAND='fzf-files edit'
 
-sel=$(fzf --prompt='NeoVim: ' | sed 's/.*/"&"/g')
-[ -z "$sel" ] && exit 1
+# An optional first argument chooses the directory to search.
+[ "$#" -eq 0 ] || cd -- "$1"
 
-eval exec "${EDITOR:-nvim}" -O $sel
-# eval setsid --fork $TERMINAL $EDITOR -O $sel
+# become hands the terminal to the editor; {+} quotes the selected filenames.
+# Expand the editor command before fzf's shell parses it (zsh does not split $var).
+# Colon form keeps editor punctuation out of fzf's binding delimiters.
+open="become:${EDITOR:-nvim} -O -- {+}"
+exec fzf --read0 --prompt='NeoVim: ' --bind="enter:$open" --bind="ctrl-l:$open"
