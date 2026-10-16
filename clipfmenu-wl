@@ -9,7 +9,7 @@ trap 'rm -f -- "$temp"' EXIT
 trap 'exit 1' HUP INT TERM
 
 cliphist list > "$temp"
-selection=$(fmenu -g 75x20 -p 'Clipboard:' -- --no-sort < "$temp") || exit 0
+selection=$(fmenu -g 100x20 -p 'Clipboard:' -- --no-sort < "$temp") || exit 0
 [ -n "$selection" ] || exit 0
 
 # Decode completely before touching the current clipboard; preserve images.
