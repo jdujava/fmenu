@@ -13,8 +13,7 @@ SCRIPTS := fmenu fmenu_run fzf-files vfzf zfzf mfzf fprompt \
 install:
 	@mkdir -pv "$(BIN_DIR)"
 	@for script in $(SCRIPTS); do \
-		cp -fv "$$script" "$(BIN_DIR)"; \
-		chmod 755 "$(BIN_DIR)/$$script"; \
+		install -m755 -T -- "$$script" "$(BIN_DIR)/$$script" || exit $$?; \
 	done
 
 # Uninstall scripts
